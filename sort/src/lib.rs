@@ -1,5 +1,34 @@
 use rand::Rng;
 
+pub fn is_sorted(vec: Vec<i32>) -> bool {
+    let mut last = i32::MIN;
+
+    for x in vec.into_iter() {
+        if x < last {
+            return false;
+        }
+    }
+
+    true
+}
+
+pub fn bogo_sort(mut vec: Vec<i32>) -> Vec<i32> {
+    let mut rng = rand::thread_rng();
+    let (mut i, mut j): (usize, usize);
+    let mut temp: i32;
+
+    while !is_sorted(vec.clone()) {
+        i = rng.gen_range(0..vec.len());
+        j = rng.gen_range(0..vec.len());
+
+        temp = vec[i];
+        vec[i] = vec[j];
+        vec[j] = temp;
+    }
+
+    vec
+}
+
 pub fn selection_sort(mut vec: Vec<i32>) -> Vec<i32> {
     vec
 }
@@ -50,7 +79,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn it_works() {
-        
+    fn bogo_test() {
+        let mut vec = vec![7, 6, 5, 3, 5, 8, 7, 2];
+        let mut x = bogo_sort(vec.clone());
+        assert_eq!(is_sorted(x), true);
     }
 }
