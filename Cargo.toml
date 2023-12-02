@@ -1,7 +1,8 @@
-[workspace]
+[package]
+name = "algorithms_and_data_structures_rs"
+version = "0.1.0"
+edition = "2021"
 
-members = [
-    "search",
-    "sort",
-    "optimization"
-]
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
