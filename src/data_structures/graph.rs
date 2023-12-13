@@ -61,7 +61,7 @@ pub trait AdjMatrix<T> {
 pub struct Graph<V: Eq + fmt::Display + Clone, M: AdjMatrix<u32> + Clone + fmt::Display, I> {
     vertices: Vec<V>,
     //relations: Vec<Vec<u64>>
-    relations: M
+    relations: u64
 }
 
 // https://doc.rust-lang.org/rust-by-example/hello/print/print_display.html
@@ -229,12 +229,98 @@ impl<V: Eq + fmt::Display + Clone> Graph<V> {
         self.vertices.len()
     }
     
-    pub fn breadth_first_search(&self, src: usize, dst: usize) -> Vec<usize> {
-        Vec::new()
+    pub fn breadth_first_search(&self, src: usize, dst: usize) -> Result<Vec<usize>, &'static str> {
+        let mut visited_vertices: Vec<bool> = vec![false; self.vertices.len()];
+        let mut frontier: VecDeque<usize> = VecDeque::new();
+        let mut path: Vec<usize> = Vec::new();
+        let mut possible_path: Vec<(usize, usize)> = Vec::new();
+        let mut parent: usize;
+        let mut actual_node: usize;
+
+        frontier.push_back(actual_node);
+
+        loop {
+            if frontier.len() == 0 {
+                return Err("No path available between the points informed!");
+            }
+
+            parent = actual_node;
+            actual_node = frontier.pop_front();
+            visited_vertices[actual_node] = true;
+            possible_path.push((parent, actual_node));
+
+            if actual_node == dst {
+                break;
+            }
+
+            for i in 0..self.num_vertices() {
+                if self.get_edge_weight(actual_node, i) != 0 && visited_vertices[i] == false {
+                    frontier.push_back(i);
+                }
+            }
+        }
+
+        actual_node = possible_path.pop();
+
+        while actual_node != src {
+            parent = possible_path.pop();
+            
+            if actual_node.0 == parent.1 {
+                path.push(actual_node);
+                actual_node = parent.0;
+            }
+        }
+
+        path.push(src);
+
+        Ok(path.reverse())
     }
 
     pub fn depth_first_search(&self, src: usize, dst: usize) -> Vec<usize> {
-        Vec::new()
+        let mut visited_vertices: Vec<bool> = vec![false; self.vertices.len()];
+        let mut frontier: Vec<usize> = Vec::new();
+        let mut path: Vec<usize> = Vec::new();
+        let mut possible_path: Vec<(usize, usize)> = Vec::new();
+        let mut parent: usize;
+        let mut actual_node: usize;
+
+        frontier.push(actual_node);
+
+        loop {
+            if frontier.len() == 0 {
+                return Err("No path available between the points informed!");
+            }
+
+            parent = actual_node;
+            actual_node = frontier.pop();
+            visited_vertices[actual_node] = true;
+            possible_path.push((parent, actual_node));
+
+            if actual_node == dst {
+                break;
+            }
+
+            for i in 0..self.num_vertices() {
+                if self.get_edge_weight(actual_node, i) != 0 && visited_vertices[i] == false {
+                    frontier.push(i);
+                }
+            }
+        }
+
+        actual_node = possible_path.pop();
+
+        while actual_node != src {
+            parent = possible_path.pop();
+            
+            if actual_node.0 == parent.1 {
+                path.push(actual_node);
+                actual_node = parent.0;
+            }
+        }
+
+        path.push(src);
+
+        Ok(path.reverse())
     }
     
     pub fn depth_limited_search(&self, src: usize, dst: usize) -> Vec<usize> {
@@ -284,33 +370,6 @@ impl<V: Eq + fmt::Display + Clone> Graph<V> {
     pub fn genetic_algorithms(&self) -> Self {
         Graph::new()
     }
-
-    /*
-    pub fn is_disconnected(&self) -> bool {
-        if self.vertices.len() == 0 {
-            return false;
-        }
-
-        let mst: Graph<V> = self.get_mst_kruskal();
-        let mut forest: Vec<HashSet<usize> = Vec::new();
-        for i in 0..self.num_vertices() {
-            forest.push(HashSet::from([i]));
-        }
-
-        // Caso o numero de vertices da mst seja diferente do grafo atual ele tem no minimo
-        //      um vertice que nao esta conectado a nenhum outro.
-        if self.num_vertices() != mst.num_vertices() {
-            return true;
-        }
-
-        let mut actual_idx:
-
-        loop {
-            break;
-        }
-
-        true
-    }*/
 
     // Algoritmo de Dijkstra
     pub fn get_dijkstra_path(&self, src_idx: usize, dst_idx: usize) -> Result<VecDeque<usize>, &'static str> {
@@ -544,6 +603,258 @@ impl<V: Eq + fmt::Display + Clone> Graph<V> {
         let mut graph: Graph<V> = Graph::from(vertices, adjacency_matrix);
 
         todo!();
+    }
+
+    pub fn get_random_route(&self) -> Result<Vec<usize>, &'static str> {
+        todo!()
+    }
+
+    pub fn get_route_cost(&self, route: &Vec<usize>) -> Result<u64, &'static str> {
+        if !self.is_squared() {
+            return Err("Graph is not squared!");
+        }
+
+        let mut cost: u64 = 0;
+
+        for i in 0..route.len() - 1 {
+            cost += self.get_edge_weight(route[i], route[i+1])?;
+        }
+
+        cost += self.get_edge_weight(route[route.len()-1], route[0])?;
+
+        Ok(cost)
+    }
+
+    pub fn get_route_cost_2(&self, route: &Vec<&usize>) -> Result<u64, &'static str> {
+        if !self.is_squared() {
+            return Err("Graph is not squared!");
+        }
+
+        let mut cost: u64 = 0;
+
+        for i in 0..route.len() - 1 {
+            cost += self.get_edge_weight(*route[i], *route[i+1])?;
+        }
+
+        cost += self.get_edge_weight(*route[route.len()-1], *route[0])?;
+
+        Ok(cost)
+    }
+
+    // Fleury algorithm: https://en.wikipedia.org/wiki/Eulerian_path#Fleury's_algorithm
+    pub fn get_eulerian_path(&self) -> Result<Vec<usize>, &'static str> {
+        let mut eulerian_path: Vec<usize> = Vec::new();
+
+        for i in 0..self.num_vertices() {
+            if self.get_adjacent_vertices(i)?.len() % 2 != 0 {
+                return Err("Graph does not have an eulerian path!");
+            }
+        }
+
+
+        
+    }
+
+    pub fn perfect_matching(&self) -> Result<Self, &'static str> {
+        let mut visited_vertices = vec![false; self.num_vertices()];
+        let mut max_coup_graph = Graph::new();
+
+        for i in 0..self.num_vertices() {
+            if visited_vertices[i] {
+                continue;
+            }
+
+            visited_vertices[i] = true;
+            let mut min_cost_vertex: usize = 0;
+
+            for j in 0..self.num_vertices() {
+                if visited_vertices[j] {
+                    continue;
+                }
+
+                if self.get_edge_weight(i, j)? < min_cost {
+                    min_cost = j;
+                }
+            }
+
+            visited_vertices[min_cost_vertex] = true;
+            max_coup_graph.insert_vertex(self.get_vertex(i)?.clone());
+            max_coup_graph.insert_vertex(self.get_vertex(min_cost_vertex)?.clone());
+            max_coup_graph.insert_edge(i, min_cost_vertex, self.get_edge_weight(i, min_cost_vertex)?, false);
+        }
+
+        Ok(max_coup_graph)
+    }
+
+    pub fn get_odd_degree_vertices(&self) -> Result<Vec<usize>, &'static str> {
+        let mut odd_degree_vertices: Vec<usize> = Vec::new();
+
+        for i in 0..self.num_vertices() {
+            if self.get_adjacent_vertices(i)?.len() % 2 != 0 {
+                odd_degree_vertices.push(i);
+            }
+        }
+
+        Ok(odd_degree_vertices)
+    }
+
+    pub fn tsp_brute_force(&self, log: bool) -> Result<(Vec<usize>, u64), &'static str> {
+        if !self.is_squared() {
+            return Err("Graph is not squared!");
+        }
+
+        let first_route: Vec<usize> = (0..self.num_vertices()).collect();
+        let mut actual_cost: u64 = self.get_route_cost(&first_route)?;
+        let mut best_route: Vec<usize> = first_route.clone();
+        let mut best_cost: u64 = actual_cost.clone();
+        let mut counter: usize = 0;
+
+        let start_time = Instant::now();
+
+        let permutations = first_route.iter().permutations(self.num_vertices() - 1);
+
+        for permutation in permutations {
+            counter += 1;
+            permutation.push(&(num_vertices - 1));
+            actual_cost = self.get_route_cost_2(&permutation)?;
+
+            if actual_cost < best_cost {
+                best_cost = actual_cost.clone();
+                best_route = permutation.into_iter().cloned().collect();
+            }
+
+            if log && counter % 10000 == 0{
+                println!("Iteration: {} - Time elapsed: {} - Route cost: {}", counter, Instant::now().duration_since(start_time).as_micros(), best_cost);
+            }
+        }
+        
+        let end_time = Instant::now();
+
+        if log {
+            println!("Total iterations: {} - Time elapsed: {} - Best route cost: {} - Best route found: {}", counter, end_time.duration_since(start_time).as_micros(), best_cost, best_route.iter().map(|x| x.to_string()).collect::<Vec<String>>().join(" -> "));
+        }
+
+        Ok((best_route, best_cost))
+    }
+
+    pub fn tsp_2_opt_approx(&self, log: bool) -> Result<(Vec<usize>, u64), &'static str> {
+        if !self.is_squared() {
+            return Err("Graph is not squared!");
+        }
+
+        let mut actual_slice: Vec<usize>;
+        let mut actual_route: Vec<usize> = (0..self.num_vertices()).collect();
+        let mut actual_cost: u64 = self.get_route_cost(&actual_route)?;
+        let mut best_route: Vec<usize> = (0..self.num_vertices()).collect();
+        let mut best_cost: u64 = actual_cost.clone();
+        let mut counter: usize = 0;
+
+        let start_time = Instant::now();
+
+        while actual_cost == best_cost {
+            for i in 0..self.num_vertices() {
+                for j in i + 1..self.num_vertices() {
+                    actual_slice = actual_route[i..j].to_vec();
+                    actual_slice.reverse();
+                    actual_route.splice(i..j, actual_slice);
+                    
+                    actual_cost = self.get_route_cost(&actual_route)?;
+
+                    if actual_cost < best_cost {
+                        best_cost = actual_cost.clone();
+                        best_route = actual_route.clone();
+                    }
+                }
+            }
+
+            if log && counter % 10000 == 0{
+                println!("Iteration: {} - Route cost: {} - Route found: {}", counter, best_cost, best_route.iter().map(|x| x.to_string()).collect::<Vec<String>>().join(" -> "));
+            }
+            counter += 1;
+        }
+
+        let end_time = Instant::now();
+        if log {
+            println!("Time elapsed: {} - Total iterations: {}", end_time.duration_since(start_time).as_micros(), counter);
+        }
+
+        Ok((best_route, best_cost))
+    }
+
+    pub fn tsp_3_opt_approx(&self, log: bool) -> Result<(Vec<usize>, u64), &'static str> {
+        todo!()
+    }
+
+    pub fn tsp_christofides_approx(&self) -> Result<Vec<usize>, &'static str> {
+        if !self.is_squared() {
+            return Err("Graph is not squared!");
+        }
+
+        if !self.is_symmetric() {
+            return Err("Graph is not symmetric!");
+        }
+
+        let start_time = Instant::now();
+
+        let mut mst: Graph<V> = self.get_mst_prim();
+        let mut odd_degree_vertices: Vec<usize> = mst.get_odd_degree_vertices()?;
+        let mut odd_graph: Graph<V> = Graph::new();
+
+        for i in 0..odd_degree_vertices.len() {
+            for j in 0..odd_degree_vertices.len() {
+                odd_graph.insert_edge(odd_degree_vertices[i], odd_degree_vertices[j], self.get_edge_weight(odd_degree_vertices[i], odd_degree_vertices[j])?, false)?;
+            }
+        }
+
+        let mut matching: Graph<V> = odd_graph.perfect_matching()?;
+        mst.union(matching)?;
+
+        // Euleryan cycle
+        let mut eulerian_path: Vec<usize> = mst.get_eulerian_path()?;
+
+        let mut end_time = Instant::now();
+
+        if log {
+            println!("MST time elapsed: {}", end_time.duration_since(start_time).as_micros());
+        }   
+    }
+
+    pub fn tsp_nearest_neighbor_greedy(&self) -> Result<Vec<usize>, &'static str> {
+        if !self.is_squared() {
+            return Err("Graph is not squared!");
+        }
+
+        let mut actual_vertex: usize = 0;
+        let mut actual_route: Vec<usize> = Vec::new();
+        let mut actual_cost: u64;
+        let mut min_cost: u64;
+        let mut min_cost_vertex: usize;
+
+        // Generating starting point
+        actual_route.push(0);
+
+        for i in 1..self.num_vertices() {
+            min_cost = self.get_edge_weight(actual_vertex, i)?;
+            min_cost_vertex = i;
+
+            for j in 0..self.num_vertices() {
+                if actual_route.contains(&j) {
+                    continue;
+                }
+
+                actual_cost = self.get_edge_weight(actual_vertex, j)?;
+
+                if actual_cost < min_cost {
+                    min_cost = actual_cost;
+                    min_cost_vertex = j;
+                }
+            }
+
+            actual_vertex = min_cost_vertex.clone();
+            actual_route.push(min_cost_vertex);
+        }
+
+        todo!()
     }
 }
 
